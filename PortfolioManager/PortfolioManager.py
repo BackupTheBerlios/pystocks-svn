@@ -18,13 +18,14 @@ class PortfolioManager(SQLObject):
         name: portfolio name
         feed: pystocks feed callable
         """
-        self.container = "~/.pystocks"
-        if not os.path.exist(self.container):
-            os.path.mkdir(self.container)
-        db_filename = os.path.join(self.container, "%s.db" % name)
-        connection_string = "sqlite:%s" % os.path.abspath(db_filename)
-        connection = connectionForURI(connection_string)
-        sqlhub.processConnection = connection
+        self.db_installdir = "~/.pystocks"
+        if not os.path.exist(self.db_installdir):
+            os.path.mkdir(self.db_installdir)
+        self.db_filename = os.path.abspath(
+            os.path.join(self.db_installdir, "%s.db" % name))
+        conn_string = "sqlite://%s" % os.path.abspath(db_filename)
+        conn = connectionForURI(connection_string)
+        sqlhub.processConnection = conn
 
     def create(self):
         """
