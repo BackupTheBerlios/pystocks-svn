@@ -4,12 +4,13 @@
 import os
 import cPickle
 
+from sqlobject import *
 from pystocks.YahooFinance import (YahooQuoteFinder,
                                    SymbolError,
                                    FeedError,
                                    format_number)
 
-class PortfolioManager:
+class PortfolioManager(SQLObject):
     def __init__(self, name, feed):
         """
         Initialize a portfolio object.
@@ -17,7 +18,13 @@ class PortfolioManager:
         name: portfolio name
         feed: pystocks feed callable
         """
-        pass
+        self.container = "~/.pystocks"
+        if not os.path.exist(self.container):
+            os.path.mkdir(self.container)
+        db_filename = os.path.join(self.container, "%s.db" % name)
+        connection_string = "sqlite:%s" % os.path.abspath(db_filename)
+        connection = connectionForURI(connection_string)
+        sqlhub.processConnection = connection
 
     def create(self):
         """
