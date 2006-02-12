@@ -2,7 +2,7 @@
 #
 
 import os
-import cPickle
+import time
 
 from sqlobject import *
 from pystocks.YahooFinance import (YahooQuoteFinder,
@@ -16,14 +16,15 @@ class StockOwned(SQLObject):
 
     symbol: stock's symbol
     amount: amount of shares owned
-    
     """
-    symbol = StringCol(length=12, notNone=True)
-    amount = IntCol()   # amount of share
-    date   = FloatCol() # time.time() # date added
-    price  = FloatCol() # paid price
+    symbol = StringCol   (length=12, notNone=True)
+    amount = IntCol      (notNone=True) # amount of share
+    date   = StringCol   (notNone=True) # time.time() # date added
+    price  = FloatCol    (notNone=True) # paid price
 
 class PortfolioManager:
+    """
+    """
     def __init__(self, name, feed=YahooQuoteFinder):
         """
         Initialize a portfolio object.
@@ -34,15 +35,16 @@ class PortfolioManager:
         """
         self.name = name
         self.feed = feed
-        self.db_installdir = "~/.pystocks"
-        self.db_filename = os.path.expanduser("%s/%s.portfolio" %
-                                              self.db_installdir, name)
-        if not os.path.exist(self.db_installdir):
-            os.path.mkdir(self.db_installdir)
+        self.db_installdir = os.path.expanduser("~/.pystocks")
+        self.db_filename = os.path.join(self.db_installdir,
+                                        name + '.db')
 
-        if self.exists()
+        if not os.path.exists(self.db_installdir):
+            os.mkdir(self.db_installdir)
+
+        if self.exists():
             conn_string = "sqlite://%s" % self.db_filename
-            conn = connectionForURI(connection_string)
+            conn = connectionForURI(conn_string)
             sqlhub.processConnection = conn
 
     def create(self):
@@ -51,21 +53,30 @@ class PortfolioManager:
         """
         if os.path.isfile(self.db_filename):
             raise ValueError("Portfolio %s exists in %s" %
-                             self.name, self.db_filename)
+                             (self.name, self.db_filename))
         else:
-            # create portfolio
-            pass
-        
-    def add(self, symbol, amount, paid_price):
+            conn_string = "sqlite://%s" % self.db_filename
+            conn = connectionForURI(conn_string)
+            sqlhub.processConnection = conn
+            StockOwned.createTable()
+
+    def add(self, symbol, amount, price=None):
         """
         Add stocks to portfolio.
 
         symbol: stock's symbol
         amount: amount of shares
         price:  paid price
+                (default: current price)
         """
         self._exist_or_die()
-        pass
+        price = price or YahooQuoteFinder(symbol).last_price
+        time_str = time.asctime(time.localtime(time.time()))
+        StockOwned(symbol=symbol, amount=amount,
+                   date=time_str, price=float(price))
+
+    def show(self):
+        print StockOwned.get(1)
 
     def remove(self, symbol):
         """
@@ -80,11 +91,12 @@ class PortfolioManager:
         """
         Bool: portfolio exists or not.
         """
-        os.path.isfile(self.db_filename)
+        if os.path.isfile(self.db_filename):
+            return True
 
     def _exist_or_die(self):
         if not self.exists():
-            raise ValueError("Portfolio %s exists in %s" %
-                             self.name, self.db_filename)
+            raise ValueError("Portfolio '%s' does not exist." %
+                             self.name)
 
 
