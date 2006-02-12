@@ -7,48 +7,6 @@ import re
 
 __revision__ = "$Id: YahooFinance.py 7 2005-12-31 00:09:06Z nicolascouture $"
 
-class FeedError(Exception):
-    """
-    Feed unavailable error.
-
-    raised when obtaining data from a feed fails.
-    """
-    
-    def __init__(self, msg=''):
-        self.message = msg
-        Exception.__init__(self, msg)
-
-    def __repr__(self):
-        return self.message
-
-    __str__ = __repr__
-
-class SymbolError(Exception):
-    """
-    Symbol invalid error.
-    
-
-    raised when a symbol is not valid.
-    """
-    def __init__(self, msg=''):
-        self.message = msg
-        Exception.__init__(self, msg)
-
-    def __repr__(self):
-        return self.message
-
-    ___str__ = __repr__
-
-def format_number(n):
-    """
-    Convert a number to a string by adding a coma every 3 characters
-    """
-    if int(n) < 0:
-        raise ValueError("positive integer expected")
-    n = str(n)
-    return ','.join([n[::-1][x:x+3]
-              for x in range(0,len(n),3)])[::-1]
-
 class YahooChartFinder:
     """
     Find charts of stocks, mutual funds, and market indices.
@@ -270,7 +228,7 @@ class YahooQuoteFinder:
             dividend: (dict)
                 l_date:   Dividend pay date
                 p_share:  Dividend per share
-                yeild:    Dividend yeild
+                yield:    Dividend yield
         
             capital:      Market cap (volume * price)
             exchange:     Exchange name
@@ -391,11 +349,11 @@ class YahooQuoteFinder:
 
         (self.EPS, self.PE) = (self.data[15], self.data[16])
 
-        # div pay date, div per share, div yeild
+        # div pay date, div per share, div yield
         self.dividend = {
             'pay_date': self.data[17],
             'per_share': self.data[18],
-            'yeild': self.data[19]
+            'yield': self.data[19]
         }
 
         (self.capital, self.exchange) = (self.data[20], self.data[21])
@@ -451,3 +409,39 @@ class YahooQuoteFinder:
             'capital': self.data[42]
         }
 
+class FeedError(Exception):
+    """
+    Feed unavailable error.
+
+    raised when obtaining data from a feed fails.
+    """
+    def __init__(self, msg=''):
+        self.message = msg
+        Exception.__init__(self, msg)
+    def __repr__(self):
+        return self.message
+    __str__ = __repr__
+
+class SymbolError(Exception):
+    """
+    Symbol invalid error.
+    
+
+    raised when a symbol is not valid.
+    """
+    def __init__(self, msg=''):
+        self.message = msg
+        Exception.__init__(self, msg)
+    def __repr__(self):
+        return self.message
+    ___str__ = __repr__
+
+def format_number(n):
+    """
+    Convert a number to a string by adding a coma every 3 characters.
+    """
+    if int(n) < 0:
+        raise ValueError("positive integer expected")
+    n = str(n)
+    return ','.join([n[::-1][x:x+3]
+              for x in range(0,len(n),3)])[::-1]

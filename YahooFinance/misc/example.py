@@ -51,7 +51,7 @@ print "Earning Per Share: %s"  % stock.EPS
 print "Price / Earning: %s"    % stock.PE
 print "Dividend pay date: %s"  % stock.dividend['pay_date']
 print "Dividend per share: %s" % stock.dividend['per_share']
-print "Dividend yeild: %s"     % stock.dividend['yeild']
+print "Dividend yield: %s"     % stock.dividend['yield']
 print "Capitalization: %s"     % stock.capital
 print "Exchange: %s"           % stock.exchange
     
