@@ -4,8 +4,51 @@
 import urllib2
 import csv
 import re
+import time
 
 __revision__ = "$Id: YahooFinance.py 7 2005-12-31 00:09:06Z nicolascouture $"
+
+class FeedError(Exception):
+    """
+    Feed unavailable error.
+
+    raised when obtaining data from a feed fails.
+    """
+    
+    def __init__(self, msg=''):
+        self.message = msg
+        Exception.__init__(self, msg)
+
+    def __repr__(self):
+        return self.message
+
+    __str__ = __repr__
+
+class SymbolError(Exception):
+    """
+    Symbol invalid error.
+    
+
+    raised when a symbol is invalid.
+    """
+    def __init__(self, msg=''):
+        self.message = msg
+        Exception.__init__(self, msg)
+
+    def __repr__(self):
+        return self.message
+
+    ___str__ = __repr__
+
+def format_number(n):
+    """
+    Convert a number to a string by adding a coma every 3 characters.
+    """
+    if int(n) < 0:
+        raise ValueError("positive integer expected")
+    n = str(n)
+    return ','.join([n[::-1][x:x+3]
+              for x in range(0,len(n),3)])[::-1]
 
 class YahooChartFinder:
     """
@@ -89,7 +132,7 @@ class YahooChartFinder:
             >>> chart = YahooChartFinder('YHOO', '1d',
             ... 'candle', 'large', 'log')
             >>> chart
-            http://ichart.finance.yahoo.com/z?s=YHOO&t=1d&q=c&l=on&z=l&a=&p=
+            http://ichart.finance.yahoo.com/z?s=YHOO&t=1d&q=c&l=on&z=l&a=&c=&p=
         """
         self.symbol  = symbol
         self.range   = range; del range
@@ -152,17 +195,24 @@ class YahooChartFinder:
         elif len(indicators) > 4:
             raise ValueError("Maximum amount of indicators is four.")
 
-        url = "http://ichart.finance.yahoo.com/z?s=%s" % self.symbol
-        url += "&t=" + self.range
-        url += "&q=" + self.type[0]
-        url += "&l=on" # UNKNOWN VARIABLE `l'
-        url += "&z=" + self.size[0]
-        url += "&a=" + ",".join(indicators)
-        if self.symbols:
-            url += "&c=" + ",".join(self.symbols)
-        url += "&p=" + ",".join(overlays)
+        service = "http://ichart.finance.yahoo.com/z?"
+        parameters = ("s=%s"      # symbol
+                      "&t=%s"     # range
+                      "&q=%s"     # type
+                      "&l=on"     #?
+                      "&z=%s"     # size
+                      "&a=%s"     # indicators
+                      "&c=%s"     # symbol list to compare
+                      "&p=%s" % ( # overlays
+            self.symbol,
+            self.range,
+            self.type[0],
+            self.size[0],
+            ",".join(indicators),
+            ",".join(self.symbols),
+            ",".join(overlays)))
 
-        return url
+        return service + parameters # url
 
     def _validate_args(self):
         if self.range not in self._times:
@@ -176,9 +226,9 @@ class YahooChartFinder:
 
         # attributes must be indicators or overlays
         for key in self.attrs:
-            if (key not in self._indicators
-                ) and (key not in self._overlays):
-                raise ValueError("Invalid attribute: %s" % key)
+            if (key not in self._indicators) and (
+                key not in self._overlays):
+               raise ValueError("Invalid attribute: %s" % key)
         
     def __repr__(self):
         return self._build_url()
@@ -190,9 +240,18 @@ class YahooQuoteFinder:
     Find stocks quotes from over 50 worldwide exanges.
     """
 
-    def __init__(self, symbol):
+    def __init__(self, symbol, date=None, end_date=None):
         """
-        Download stock's attributes and attribute them to this object.
+        Download stock quotation data and organize it in this object.
+
+        symbol:           stock symbol/ticker
+        
+        date, end_date: (optional)
+            These variables are used to obtain historical quotes;
+            If only `date' is specified, we will obtain the historical
+            quote for the date provided. If both `date' and `end_date'
+            are specified, we will obtain all historical quotes for
+            the time frame they create.
         
         * Basic attributes:
 
@@ -228,7 +287,7 @@ class YahooQuoteFinder:
             dividend: (dict)
                 l_date:   Dividend pay date
                 p_share:  Dividend per share
-                yield:    Dividend yield
+                yeild:    Dividend yeild
         
             capital:      Market cap (volume * price)
             exchange:     Exchange name
@@ -273,8 +332,24 @@ class YahooQuoteFinder:
                 day_range:   Day range (real-time)
                 capital:     Market cap (volume * price) (real-time)
 
-        Example:
+        * Historical attributes
 
+            date: (dict)
+                ~value: (dict)
+                 In format YYYYMMDD, this key will contain
+                 a stock's historical quote attributes if the
+                 date provided in `~value' was requested using
+                 `date' and/or 'end_date' when initializing the object.
+                 
+                    open:      Historical open price
+                    high:      Historical high price
+                    low:       Historical low price
+                    close:     Historical close price
+                    volume:    Historical volume
+                    adj_close: Historical close price adjusted
+                                for dividends and splits
+
+        Example:
             >>> YHOO = YahooQuoteFinder('YHOO')
             >>> YHOO.symbol
             'YHOO'
@@ -292,15 +367,17 @@ class YahooQuoteFinder:
         try:
             f = urllib2.urlopen(self.url)
         except urllib2.URLError, e:
-            raise FeedError("Could not fetch stocks attributes")
+            raise FeedError("Could not obtain stock information")
 
 
         # read the csv file, create the list of our attributes
         # and remove unwanted sgml tags
         reader = csv.reader(f)
-        for l in reader: self.data = l
+        for l in reader:  #? 
+            self.data = l #?
+
         for (pos, item) in enumerate(self.data):
-            self.data[pos] = re.sub ('<[^>]*>', '', self.data[pos])
+            self.data[pos] = re.sub('<[^>]*>', '', self.data[pos])
 
         # If the volume of shares is not available,
         # it is an invalid symbol
@@ -349,11 +426,11 @@ class YahooQuoteFinder:
 
         (self.EPS, self.PE) = (self.data[15], self.data[16])
 
-        # div pay date, div per share, div yield
+        # div pay date, div per share, div yeild
         self.dividend = {
             'pay_date': self.data[17],
             'per_share': self.data[18],
-            'yield': self.data[19]
+            'yeild': self.data[19]
         }
 
         (self.capital, self.exchange) = (self.data[20], self.data[21])
@@ -409,39 +486,107 @@ class YahooQuoteFinder:
             'capital': self.data[42]
         }
 
-class FeedError(Exception):
-    """
-    Feed unavailable error.
+        # Historical quote container
+        self.date = {}
 
-    raised when obtaining data from a feed fails.
-    """
-    def __init__(self, msg=''):
-        self.message = msg
-        Exception.__init__(self, msg)
-    def __repr__(self):
-        return self.message
-    __str__ = __repr__
 
-class SymbolError(Exception):
-    """
-    Symbol invalid error.
-    
+        #==> We start processing historical quote requests
+        
+        # Historical quote requested dates containers
+        start_date = None
+        final_date = None        
 
-    raised when a symbol is not valid.
-    """
-    def __init__(self, msg=''):
-        self.message = msg
-        Exception.__init__(self, msg)
-    def __repr__(self):
-        return self.message
-    ___str__ = __repr__
+        # Yahoo! Finance's historical quotation service location
+        service = "http://ichart.finance.yahoo.com/table.csv?"
 
-def format_number(n):
-    """
-    Convert a number to a string by adding a coma every 3 characters.
-    """
-    if int(n) < 0:
-        raise ValueError("positive integer expected")
-    n = str(n)
-    return ','.join([n[::-1][x:x+3]
-              for x in range(0,len(n),3)])[::-1]
+        # Final URL from which to obtain our historical quotes
+        url = None
+
+        # Validate and initialize data for historical quotes
+        if date or end_date:
+            # Verify the date and/or end_date validity
+            if date:
+                if len(date) != 8:
+                    raise ValueError("The date provided must be"
+                                     " in format YYYMMDD.")
+            if end_date:
+                if len(end_date) != 8:
+                    raise ValueError("The end date provided must be"
+                                     " in format YYYMMDD.")
+
+            if date and end_date:                    
+                # Verify the validity of the time frame requested
+                if int(date) > int(end_date):
+                    raise ValueError("The start date provided must be"
+                                     " smaller than the end date")
+
+            # end_date depends on date
+            if not date and end_date:
+                raise ValueError("You must provide a date to have"
+                                 "an end date")
+
+            # Create "3" tuples (month, day, year) to feed yahoo with
+            
+            # We need to substract 1 to the month because yahoo requires
+            # the month provided to the table.csv service to be a value
+            # from 0 to 11.
+            if date:
+                start_date = (int(date[4::2]) - 1, date[6:], date[:4])
+            if end_date:
+                final_date = (int(end_date[4::2]) - 1, end_date[6:],
+                              end_date[:4])
+
+        # For a time frame
+        if start_date and final_date:
+            parameters = ("a=%s&b=%s&c=%s"   # start date (m, d, y)
+                          "&d=%s&e=%s&f=%s"  # first date (m, d, y)
+                          "&s=%s" % (        # symbol
+                          #"&y=0"             # ?
+                          #"&g=d"             # ?
+                          #"&ignore=.csv" % ( # ?
+                          start_date[0], start_date[1], start_date[2],
+                          final_date[0], final_date[1], final_date[2],
+                          symbol))
+
+            url = service + parameters
+
+        # For a specific date
+        elif start_date:
+            parameters = ("a=%s&b=%s&c=%s"   # first date (m, d, y)
+                          "&d=%s&e=%s&f=%s"  # final date (m, d, y)
+                          "&s=%s" % (        # symbol
+                          #"&y=0"             # ?
+                          #"&g=d"             # ?
+                          #"&ignore=.csv" % ( # ?
+                          start_date[0], start_date[1], start_date[2],
+                          start_date[0], start_date[1], start_date[2],
+                          symbol))
+
+            url = service + parameters
+
+        if url:
+            # Obtain and parse data
+            historical_data = urllib2.urlopen(url)
+            reader = csv.reader(historical_data)
+            for (pos, l) in enumerate(reader):
+                # If this is the first line, it is the csv description
+                if pos == 0:
+                    continue
+
+                strtm = time.strptime(l[0], '%d-%b-%y')
+                epoch = time.mktime(strtm)
+                local = time.localtime(epoch)
+                l_date = time.strftime('%Y%m%d', local)
+                self.date[l_date] = {}
+                self.date[l_date]['open']   = l[1:][0]
+                self.date[l_date]['high']   = l[1:][1]
+                self.date[l_date]['low']    = l[1:][2]
+                self.date[l_date]['close']  = l[1:][3]
+                self.date[l_date]['volume'] = l[1:][4]
+                self.date[l_date]['adj_close'] = l[1:][5]
+
+            
+
+
+            
+            
