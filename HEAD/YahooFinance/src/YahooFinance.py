@@ -513,11 +513,12 @@ class YahooQuoteFinder:
                     raise ValueError("The date provided must be"
                                      " in format YYYMMDD.")
             elif end_date:
+                if not date:
+                    raise ValueError("You must provide a date with an end date")
                 if len(end_date) != 8:
                     raise ValueError("The end date provided must be"
                                      " in format YYYMMDD.")
-            else:
-                raise ValueError("You must provide a date, end date or both.")
+
 
             # Create "3" tuples (month, day, year) to feed yahoo with
             
