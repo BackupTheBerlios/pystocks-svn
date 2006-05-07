@@ -489,9 +489,7 @@ class YahooQuoteFinder:
         # Historical quote container
         self.date = {}
 
-
         #==> We start processing historical quote requests
-        
         # Historical quote requested dates containers
         start_date = None
         final_date = None        
@@ -505,25 +503,21 @@ class YahooQuoteFinder:
         # Validate and initialize data for historical quotes
         if date or end_date:
             # Verify the date and/or end_date validity
-            if date:
-                if len(date) != 8:
-                    raise ValueError("The date provided must be"
-                                     " in format YYYMMDD.")
-            if end_date:
-                if len(end_date) != 8:
-                    raise ValueError("The end date provided must be"
-                                     " in format YYYMMDD.")
-
             if date and end_date:                    
                 # Verify the validity of the time frame requested
                 if int(date) > int(end_date):
                     raise ValueError("The start date provided must be"
                                      " smaller than the end date")
-
-            # end_date depends on date
-            if not date and end_date:
-                raise ValueError("You must provide a date to have"
-                                 "an end date")
+            elif date:
+                if len(date) != 8:
+                    raise ValueError("The date provided must be"
+                                     " in format YYYMMDD.")
+            elif end_date:
+                if len(end_date) != 8:
+                    raise ValueError("The end date provided must be"
+                                     " in format YYYMMDD.")
+            else:
+                raise ValueError("You must provide a date, end date or both.")
 
             # Create "3" tuples (month, day, year) to feed yahoo with
             
@@ -585,8 +579,4 @@ class YahooQuoteFinder:
                 self.date[l_date]['volume'] = l[1:][4]
                 self.date[l_date]['adj_close'] = l[1:][5]
 
-            
 
-
-            
-            
